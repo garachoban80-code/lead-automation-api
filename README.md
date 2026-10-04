@@ -1,56 +1,55 @@
 # Lead Automation API
 
-A simple lead collection and validation API built with **FastAPI** and integrated with **n8n**.
-
-## Project Overview
-
-This project is a small automation system for receiving, validating, and storing customer leads.
-
-The system receives lead data through an **n8n Webhook**, sends the data to a **FastAPI** endpoint, validates the information, checks for duplicate phone numbers and email addresses, and stores valid leads in a JSON file.
-
-## Architecture
-
-Client
-   ↓
-n8n Webhook
-   ↓
-n8n HTTP Request
-   ↓
-FastAPI
-   ↓
-Validation
-   ↓
-Duplicate Check
-   ↓
-leads.json
-   ↓
-HTTP Response
-
-## Technologies
-
-- Python
-- FastAPI
-- Pydantic
-- Requests
-- n8n
-- JSON
-- HTTP / REST API
+A lead management and automation project built with **Python, FastAPI, and n8n**. It receives lead information, validates customer data, scores qualified leads, and provides statistical reports through an API.
 
 ## Features
 
-- Receive lead data through an API endpoint
-- Validate required fields
-- Validate Iranian phone numbers
-- Basic email validation
-- Detect duplicate phone numbers
-- Detect duplicate email addresses
-- Return appropriate HTTP status codes
-- Store leads in JSON format
-- Integrate with n8n automation workflows
+- Receive leads through REST API endpoints
+- Validate required fields, email addresses, and Iranian mobile numbers
+- Detect duplicate phone numbers and email addresses
+- Score qualified leads based on budget, timeline, and clarity of need
+- Categorize leads as **Hot**, **Warm**, or **Cold**
+- Store lead records in JSON files
+- Generate statistical reports with lead counts and percentages
+- Integrate with n8n workflows
+- Support automated Telegram notifications through n8n
 
-## API Endpoint
+## Architecture
 
-### POST `/webhook`
+```text
+Lead Source
+    |
+    v
+n8n Webhook
+    |
+    v
+FastAPI
+    |
+    +--> Validate Lead
+    |
+    +--> Check Duplicates
+    |
+    +--> Score Qualified Lead
+    |
+    +--> Store Lead Data
+    |
+    v
+API Response
+
+n8n Report Workflow
+    |
+    v
+FastAPI /report
+    |
+    v
+Telegram Report
+```
+
+## API Endpoints
+
+### 1. POST `/webhook`
+
+Receives and validates standard lead information.
 
 Example request:
 
@@ -64,90 +63,64 @@ Example request:
 }
 ```
 
-## Response Examples
+### 2. POST `/qualified-lead`
 
-### Successful Request
+Receives lead information with additional qualification fields and calculates a score and category.
 
-HTTP 200 OK
-
-```json
-{
-  "success": true,
-  "message": "Lead saved.",
-  "error_type": null
-}
-```
-
-### Validation Error
-
-HTTP 400 Bad Request
+Example request:
 
 ```json
 {
-  "success": false,
-  "message": "Invalid phone number."
+  "name": "Test Customer",
+  "job": "Automation Test",
+  "city": "Test City",
+  "phone": "09120000000",
+  "email": "test-qualified@example.com",
+  "budget": "yes",
+  "timeline": "this_month",
+  "need": "clear"
 }
 ```
 
-### Duplicate Phone or Email
+The scoring system considers:
+- Budget availability
+- Project timeline
+- Clarity of customer requirements
 
-HTTP 409 Conflict
+### 3. GET `/report`
 
-```json
-{
-  "success": false,
-  "message": "This phone number already exists."
-}
-```
+Returns statistical information about stored leads, including:
+- Total leads
+- Hot, Warm, and Cold leads
+- Unclassified leads
+- Lead category percentages
 
-or:
+## Technologies
 
-```json
-{
-  "success": false,
-  "message": "This email already exists."
-}
-```
-
-## Project Structure
-
-lead-automation-api/
-│
-├── lead_api.py
-├── send_test.py
-├── storage_test.py
-├── leads.example.json
-├── requirements.txt
-├── .gitignore
-└── README.md
+- Python
+- FastAPI
+- Pydantic
+- Uvicorn
+- Requests
+- n8n
+- REST API
+- JSON
+- Telegram Bot integration through n8n
 
 ## Installation
 
 Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/garachoban80-code/lead-automation-api.git
 cd lead-automation-api
 ```
 
-Create a virtual environment:
+Create and activate a virtual environment:
 
 ```bash
 python -m venv .venv
-```
-
-Activate the virtual environment.
-
-### Linux / macOS
-
-```bash
 source .venv/bin/activate
-```
-
-### Windows
-
-```bash
-.venv\Scripts\activate
 ```
 
 Install dependencies:
@@ -156,68 +129,36 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-## Running the API
-
-Start FastAPI with Uvicorn:
+## Run the API
 
 ```bash
-uvicorn lead_api:app --reload
+uvicorn lead_api:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-The API will be available at:
+API base URL:
 
-http://127.0.0.1:8000
+`http://127.0.0.1:8000`
 
 Interactive API documentation:
 
-http://127.0.0.1:8000/docs
+`http://127.0.0.1:8000/docs`
 
 ## n8n Integration
 
-The API can be connected to an n8n workflow using an HTTP Request node.
+The API can be connected to n8n using Webhook and HTTP Request nodes. Workflows can forward incoming lead information to FastAPI, process the response, route leads based on category, and send notifications through Telegram.
 
-Example workflow:
+A separate report workflow can request `/report` and deliver the statistics to Telegram.
 
-Webhook
-   ↓
-HTTP Request
-   ↓
-FastAPI
-   ↓
-Response
+## Data and Security
 
-n8n receives the lead through a Webhook and forwards the lead data to the FastAPI `/webhook` endpoint.
+Lead records are stored locally in JSON files. Generated customer data files should not be committed to a public repository.
 
-## HTTP Status Codes
+Do not publish API keys, bot tokens, passwords, or real customer information.
 
-| Status Code | Meaning |
-|---|---|
-| 200 | Lead successfully saved |
-| 400 | Validation or business rule error |
-| 409 | Duplicate phone number or email |
-| 422 | Invalid request structure |
+## Project Status
 
-## Security Note
-
-Real lead data should not be committed to a public repository.
-
-The real `leads.json` file is excluded using `.gitignore`.
-
-`leads.example.json` is provided as a safe example file.
-
-## Future Improvements
-
-- AI-based lead qualification
-- Lead scoring
-- Database integration
-- CRM integration
-- Automated notifications
-- Automated follow-up
-- AI Agent integration
-- PostgreSQL
-- Authentication
-- Docker deployment
+The lead intake, qualification, reporting, and n8n integration workflows have been tested in a local development environment.
 
 ## Author
 
-Personal portfolio project focused on **Python, APIs, n8n automation, and AI-powered business automation**.
+Portfolio project focused on Python API development, workflow automation, data validation, and lead qualification.
