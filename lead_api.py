@@ -2,11 +2,11 @@
 from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException
-from app.models.lead import Lead, QualifiedLead
+from app.models.lead import Lead, LeadActivityInput, QualifiedLead
 
 from app.services.scoring_service import score_lead
-from app.db.repository import load_leads, save_lead
-from app.security.api_key import require_api_key
+from app.db.repository import load_leads, save_activity, save_lead
+from app.security.api_key import require_activity_api_key, require_api_key
 
 
 app = FastAPI(title="Lead Automation API")
@@ -61,6 +61,22 @@ def qualified_lead(lead: QualifiedLead, _: None = Depends(require_api_key)):
         "lead_id": result["lead_id"],
         "lead": data,
     }
+
+
+@app.post("/leads/{lead_id}/activities", status_code=201)
+def create_lead_activity(
+    lead_id: int,
+    activity: LeadActivityInput,
+    _: None = Depends(require_activity_api_key),
+):
+    result = save_activity(lead_id, activity.type)
+
+    if not result["success"]:
+        if result["error_type"] == "lead_not_found":
+            raise HTTPException(status_code=404, detail=result["message"])
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
 
 
 @app.get("/report")

@@ -70,9 +70,13 @@ class TestLeadAPI(unittest.TestCase):
         self.storage_patch.start()
 
         self.api_key = "test-api-key-" + ("x" * 40)
+        self.activity_api_key = "test-activity-api-key-" + ("y" * 40)
         self.env_patch = patch.dict(
             os.environ,
-            {"API_KEY": self.api_key},
+            {
+                "API_KEY": self.api_key,
+                "ACTIVITY_API_KEY": self.activity_api_key,
+            },
         )
         self.env_patch.start()
 
@@ -211,6 +215,83 @@ class TestLeadAPI(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["total_leads"], 0)
+
+
+    def test_activity_endpoint_rejects_invalid_api_key(self):
+        response = self.client.post(
+            "/leads/1/activities",
+            json={"type": "quote_requested"},
+            headers={"X-Activity-API-Key": "wrong-key"},
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_activity_is_persisted_with_server_timestamp(self):
+        lead_response = self.client.post(
+            "/webhook",
+            json=self.basic_lead,
+        )
+        self.assertEqual(lead_response.status_code, 200)
+        lead_id = lead_response.json()["lead_id"]
+
+        response = self.client.post(
+            f"/leads/{lead_id}/activities",
+            json={"type": "quote_requested"},
+            headers={
+                "X-Activity-API-Key": self.activity_api_key,
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        result = response.json()
+        self.assertEqual(result["lead_id"], lead_id)
+        self.assertEqual(result["type"], "quote_requested")
+        self.assertTrue(result["occurred_at"])
+
+        with TEST_ENGINE.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT lead_id, type, occurred_at "
+                    "FROM lead_activities"
+                )
+            ).one()
+
+        self.assertEqual(row.lead_id, lead_id)
+        self.assertEqual(row.type, "quote_requested")
+        self.assertIsNotNone(row.occurred_at)
+        self.assertIsNotNone(row.occurred_at.tzinfo)
+
+    def test_unknown_activity_type_is_rejected(self):
+        response = self.client.post(
+            "/leads/1/activities",
+            json={"type": "invented_activity"},
+            headers={
+                "X-Activity-API-Key": self.activity_api_key,
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_client_cannot_supply_activity_timestamp(self):
+        response = self.client.post(
+            "/leads/1/activities",
+            json={
+                "type": "quote_requested",
+                "occurred_at": "2026-10-09T10:00:00+00:00",
+            },
+            headers={
+                "X-Activity-API-Key": self.activity_api_key,
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_activity_for_unknown_lead_returns_404(self):
+        response = self.client.post(
+            "/leads/999999/activities",
+            json={"type": "quote_requested"},
+            headers={
+                "X-Activity-API-Key": self.activity_api_key,
+            },
+        )
+        self.assertEqual(response.status_code, 404)
 
 
 if __name__ == "__main__":

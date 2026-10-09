@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.db.database import SessionLocal
-from app.db.models import LeadRecord
+from app.db.models import LeadActivity, LeadRecord
 
 
 REQUIRED_FIELDS = ("name", "job", "city", "phone", "email")
@@ -216,3 +216,36 @@ def save_lead(new_lead):
         "error_type": None,
         "lead_id": record.id,
     }
+
+
+def save_activity(lead_id: int, activity_type: str):
+    """Persist an activity using a server-generated UTC timestamp."""
+    with SessionLocal() as session:
+        lead = session.get(LeadRecord, lead_id)
+
+        if lead is None:
+            return _failure("Lead not found.", "lead_not_found")
+
+        activity = LeadActivity(
+            lead_id=lead_id,
+            type=activity_type,
+            occurred_at=datetime.now(timezone.utc),
+        )
+        session.add(activity)
+
+        try:
+            session.commit()
+            session.refresh(activity)
+        except IntegrityError:
+            session.rollback()
+            raise
+
+        return {
+            "success": True,
+            "message": "Activity saved.",
+            "error_type": None,
+            "activity_id": activity.id,
+            "lead_id": activity.lead_id,
+            "type": activity.type,
+            "occurred_at": activity.occurred_at.isoformat(),
+        }
