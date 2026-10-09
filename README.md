@@ -9,7 +9,7 @@ A lead management and automation project built with **Python, FastAPI, and n8n**
 - Detect duplicate phone numbers and email addresses
 - Score qualified leads based on budget, timeline, and clarity of need
 - Categorize leads as **Hot**, **Warm**, or **Cold**
-- Store lead records in JSON files
+- Store lead records in PostgreSQL using SQLAlchemy
 - Generate statistical reports with lead counts and percentages
 - Integrate with n8n workflows
 - Support automated Telegram notifications through n8n
@@ -151,7 +151,7 @@ A separate report workflow can request `/report` and deliver the statistics to T
 
 ## Data and Security
 
-Lead records are stored locally in JSON files. Generated customer data files should not be committed to a public repository.
+Lead records are stored in PostgreSQL. Legacy JSON files may contain customer data; keep them out of public repositories.
 
 Do not publish API keys, bot tokens, passwords, or real customer information.
 
