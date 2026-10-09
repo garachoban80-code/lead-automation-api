@@ -107,6 +107,8 @@ class TestLeadAPI(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["success"])
+        self.assertIsInstance(response.json().get("lead_id"), int)
+        self.assertGreater(response.json()["lead_id"], 0)
 
         saved = repository.load_leads()
         self.assertEqual(len(saved), 1)
@@ -157,6 +159,8 @@ class TestLeadAPI(unittest.TestCase):
         response = self.client.post("/qualified-lead", json=lead)
 
         self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.json().get("lead_id"), int)
+        self.assertGreater(response.json()["lead_id"], 0)
         result = response.json()["lead"]
         self.assertIsNone(result["score"])
         self.assertEqual(result["category"], "unclassified")

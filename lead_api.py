@@ -58,6 +58,7 @@ def qualified_lead(lead: QualifiedLead, _: None = Depends(require_api_key)):
     return {
         "success": True,
         "message": "Lead saved and scored.",
+        "lead_id": result["lead_id"],
         "lead": data,
     }
 

@@ -214,4 +214,5 @@ def save_lead(new_lead):
         "success": True,
         "message": "Lead saved.",
         "error_type": None,
+        "lead_id": record.id,
     }
