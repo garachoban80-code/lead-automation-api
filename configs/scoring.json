@@ -1,0 +1,52 @@
+{
+  "version": "heuristic-v2",
+  "description": "Transparent, configurable lead-priority rules. Not a purchase-probability model.",
+  "fit": {
+    "target_industries": [],
+    "adjacent_industries": [],
+    "target_company_sizes": [],
+    "decision_maker_roles": [],
+    "influencer_roles": [],
+    "service_regions": []
+  },
+  "fit_points": {
+    "target_industry": 25,
+    "adjacent_industry": 12,
+    "target_company_size": 20,
+    "decision_maker": 20,
+    "influencer": 10,
+    "service_region": 15,
+    "maximum_raw_score": 80
+  },
+  "intent_points": {
+    "budget_confirmed": 15,
+    "budget_amount_provided": 5,
+    "timeline_days": {
+      "0_30": 25,
+      "31_90": 15,
+      "over_90": 5
+    },
+    "activities": {
+      "demo_booked": 30,
+      "quote_requested": 30,
+      "contact_form_submitted": 12,
+      "sales_email_reply": 15,
+      "pricing_page_view": 5
+    },
+    "maximum_raw_score": 100
+  },
+  "negative_points": {
+    "explicit_disqualification": 60,
+    "outside_service_area": 35,
+    "invalid_contact": 25
+  },
+  "activity_decay_days": 30,
+  "score_weights": {
+    "fit": 0.4,
+    "intent": 0.6
+  },
+  "thresholds": {
+    "hot": 70,
+    "warm": 40
+  }
+}

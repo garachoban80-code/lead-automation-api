@@ -1,114 +1,15 @@
 
-import json
 from datetime import datetime
-from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException
+from app.models.lead import Lead, QualifiedLead
 
-from lead_scoring import score_lead
+from app.services.scoring_service import score_lead
+from app.db.repository import load_leads, save_lead
+from app.security.api_key import require_api_key
 
 
 app = FastAPI(title="Lead Automation API")
-
-DATA_FILE = Path("leads.json")
-
-
-class Lead(BaseModel):
-    name: str
-    job: str
-    city: str
-    phone: str
-    email: str
-
-
-class QualifiedLead(Lead):
-    budget: str
-    timeline: str
-    need: str
-
-
-def load_leads():
-    """Load leads from JSON or return an empty list if the file is missing."""
-    try:
-        with DATA_FILE.open("r", encoding="utf-8") as file:
-            leads = json.load(file)
-
-        if not isinstance(leads, list):
-            raise ValueError("Lead data must be a JSON list.")
-
-        return leads
-
-    except FileNotFoundError:
-        return []
-
-
-def save_leads(leads):
-    """Save all leads to the JSON data file."""
-    with DATA_FILE.open("w", encoding="utf-8") as file:
-        json.dump(leads, file, ensure_ascii=False, indent=4)
-
-
-def save_lead(new_lead):
-    """Validate a lead, check duplicates, and store it."""
-    required_fields = ["name", "job", "city", "phone", "email"]
-
-    for field in required_fields:
-        if not new_lead.get(field):
-            return {
-                "success": False,
-                "message": f"{field} is missing.",
-                "error_type": "validation",
-            }
-
-    phone = new_lead["phone"]
-    email = new_lead["email"]
-
-    if (
-        not phone.isdigit()
-        or len(phone) != 11
-        or not phone.startswith("09")
-    ):
-        return {
-            "success": False,
-            "message": "Invalid phone number.",
-            "error_type": "validation",
-        }
-
-    if "@" not in email:
-        return {
-            "success": False,
-            "message": "Invalid email.",
-            "error_type": "validation",
-        }
-
-    leads = load_leads()
-
-    for lead in leads:
-        if lead.get("phone") == phone:
-            return {
-                "success": False,
-                "message": "This phone number already exists.",
-                "error_type": "duplicate_phone",
-            }
-
-        existing_email = lead.get("email", "")
-        if existing_email.lower() == email.lower():
-            return {
-                "success": False,
-                "message": "This email already exists.",
-                "error_type": "duplicate_email",
-            }
-
-    leads.append(new_lead)
-    save_leads(leads)
-
-    return {
-        "success": True,
-        "message": "Lead saved.",
-        "error_type": None,
-    }
-
 
 def handle_result(result):
     """Convert validation and duplicate errors into HTTP responses."""
@@ -136,14 +37,14 @@ def home():
 
 
 @app.post("/webhook")
-def webhook(lead: Lead):
-    result = save_lead(lead.model_dump())
+def webhook(lead: Lead, _: None = Depends(require_api_key)):
+    result = save_lead(lead.model_dump(mode="json", exclude_none=True))
     return handle_result(result)
 
 
 @app.post("/qualified-lead")
-def qualified_lead(lead: QualifiedLead):
-    data = lead.model_dump()
+def qualified_lead(lead: QualifiedLead, _: None = Depends(require_api_key)):
+    data = lead.model_dump(mode="json", exclude_none=True)
 
     data["received_at"] = datetime.now().astimezone().isoformat(
         timespec="seconds"
@@ -162,7 +63,7 @@ def qualified_lead(lead: QualifiedLead):
 
 
 @app.get("/report")
-def report():
+def report(_: None = Depends(require_api_key)):
     leads = load_leads()
 
     hot_count = 0

@@ -13,3 +13,14 @@ qualified_leads.json
 
 # Local output and test artifacts
 output.txt
+
+# Local test data
+lead.json
+lead.txt
+test.txt
+
+# Separate project - do not include in mother repository
+voice-lead-demo/
+
+# Allow committing the environment template
+!.env.example
