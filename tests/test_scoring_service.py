@@ -91,6 +91,25 @@ class TestScoringService(unittest.TestCase):
             for reason in result["reasons"]
         ))
 
+    def test_qualified_industry_description_matches_target(self):
+        config = copy.deepcopy(self.config)
+        config["fit"]["target_industries"].append("فروشگاه اینترنتی")
+
+        lead = copy.deepcopy(self.lead)
+        lead["industry"] = "فروشگاه اینترنتى پوشاک"
+
+        result = score_lead(
+            lead,
+            config=config,
+            now=self.now,
+        )
+
+        self.assertEqual(result["components"]["fit_score"], 100)
+        self.assertTrue(any(
+            "Industry matches target market." in reason
+            for reason in result["reasons"]
+        ))
+
     def test_recent_activity_contributes_more_than_old_activity(self):
         recent = copy.deepcopy(self.lead)
         recent["activities"] = [{

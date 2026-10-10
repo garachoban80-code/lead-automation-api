@@ -1,4 +1,5 @@
 import json
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -43,7 +44,18 @@ def load_scoring_config(config_path=None):
 
 
 def _normalize(value):
-    return str(value).strip().casefold() if value is not None else ""
+    if value is None:
+        return ""
+
+    normalized = unicodedata.normalize("NFKC", str(value))
+    normalized = normalized.translate(str.maketrans({
+        "ي": "ی",
+        "ى": "ی",
+        "ك": "ک",
+        "\u200c": " ",
+        "\u200d": "",
+    }))
+    return " ".join(normalized.casefold().split())
 
 
 def _matches(value, options):
@@ -51,6 +63,20 @@ def _matches(value, options):
     return bool(normalized) and normalized in {
         _normalize(option) for option in options
     }
+
+
+def _matches_industry(value, options):
+    """Match a configured industry phrase within a longer description."""
+    normalized = _normalize(value)
+    if not normalized:
+        return False
+
+    padded_value = f" {normalized} "
+    return any(
+        _normalize(option)
+        and f" {_normalize(option)} " in padded_value
+        for option in options
+    )
 
 
 def _parse_datetime(value):
@@ -144,10 +170,10 @@ def score_lead(lead, config=None, now=None):
 
         industry = lead.get("industry")
 
-        if _matches(industry, target_industries):
+        if _matches_industry(industry, target_industries):
             fit_raw += float(fit_points["target_industry"])
             reasons.append("Industry matches target market.")
-        elif _matches(industry, adjacent_industries):
+        elif _matches_industry(industry, adjacent_industries):
             fit_raw += float(fit_points["adjacent_industry"])
             reasons.append("Industry matches adjacent market.")
         elif not _normalize(industry):
