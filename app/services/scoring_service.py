@@ -152,6 +152,11 @@ def score_lead(lead, config=None, now=None):
             reasons.append("Industry matches adjacent market.")
         elif not _normalize(industry):
             reasons.append("Industry is missing; no fit points awarded.")
+        else:
+            reasons.append(
+                "Industry is not in the configured target or adjacent "
+                "markets; no fit points awarded."
+            )
 
     if size_configured:
         fit_max += float(fit_points["target_company_size"])

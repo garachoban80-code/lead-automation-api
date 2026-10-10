@@ -1,13 +1,82 @@
 {
-  "version": "heuristic-v2",
-  "description": "Transparent, configurable lead-priority rules. Not a purchase-probability model.",
+  "version": "heuristic-v3-icp-initial",
+  "description": "Initial ICP for small Iranian businesses with repetitive administrative workflows. Transparent heuristic, not a purchase-probability model.",
   "fit": {
-    "target_industries": [],
-    "adjacent_industries": [],
-    "target_company_sizes": [],
-    "decision_maker_roles": [],
-    "influencer_roles": [],
-    "service_regions": []
+    "target_industries": [
+      "خدمات کسب‌وکار",
+      "خدمات اداری",
+      "فروشگاه اینترنتی",
+      "تجارت الکترونیک",
+      "پخش و توزیع",
+      "آموزشگاه",
+      "املاک",
+      "حسابداری",
+      "دیجیتال مارکتینگ",
+      "business services",
+      "administrative services",
+      "e-commerce",
+      "distribution",
+      "education",
+      "real estate",
+      "accounting services"
+    ],
+    "adjacent_industries": [
+      "خرده‌فروشی",
+      "تولیدی کوچک",
+      "خدمات فنی",
+      "لجستیک",
+      "رستوران و کافه",
+      "مشاوره",
+      "retail",
+      "small manufacturing",
+      "technical services",
+      "logistics",
+      "consulting"
+    ],
+    "target_company_sizes": [
+      "۱ تا ۱۰ نفر",
+      "۱۱ تا ۵۰ نفر",
+      "کسب‌وکار کوچک",
+      "1-10 employees",
+      "11-50 employees",
+      "small business",
+      "solo"
+    ],
+    "decision_maker_roles": [
+      "مالک",
+      "صاحب کسب‌وکار",
+      "مدیرعامل",
+      "بنیان‌گذار",
+      "مدیر کسب‌وکار",
+      "مدیر عملیات",
+      "مدیر فروش",
+      "owner",
+      "business owner",
+      "founder",
+      "CEO",
+      "operations manager",
+      "sales manager"
+    ],
+    "influencer_roles": [
+      "مدیر دفتر",
+      "مسئول دفتر",
+      "مسئول اداری",
+      "کارشناس اداری",
+      "کارشناس فروش",
+      "کارشناس عملیات",
+      "office manager",
+      "office administrator",
+      "administrative assistant",
+      "sales representative"
+    ],
+    "service_regions": [
+      "ایران",
+      "سراسر ایران",
+      "کل ایران",
+      "Iran",
+      "Iran nationwide",
+      "nationwide"
+    ]
   },
   "fit_points": {
     "target_industry": 25,

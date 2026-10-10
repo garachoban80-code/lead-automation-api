@@ -74,6 +74,23 @@ class TestScoringService(unittest.TestCase):
         self.assertEqual(result["score"], 64)
         self.assertEqual(result["category"], "warm")
 
+    def test_unmatched_industry_explains_no_fit_points(self):
+        lead = copy.deepcopy(self.lead)
+        lead["industry"] = "unlisted industry"
+
+        result = score_lead(
+            lead,
+            config=self.config,
+            now=self.now,
+        )
+
+        self.assertLess(result["components"]["fit_score"], 100)
+        self.assertTrue(any(
+            "not in the configured target or adjacent markets"
+            in reason
+            for reason in result["reasons"]
+        ))
+
     def test_recent_activity_contributes_more_than_old_activity(self):
         recent = copy.deepcopy(self.lead)
         recent["activities"] = [{

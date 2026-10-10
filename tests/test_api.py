@@ -160,7 +160,30 @@ class TestLeadAPI(unittest.TestCase):
             "need": "clear",
         }
 
-        response = self.client.post("/qualified-lead", json=lead)
+        from app.services.scoring_service import (
+            load_scoring_config,
+            score_lead as score_lead_with_config,
+        )
+
+        incomplete_config = load_scoring_config()
+        for field in (
+            "target_industries",
+            "adjacent_industries",
+            "target_company_sizes",
+            "decision_maker_roles",
+            "influencer_roles",
+            "service_regions",
+        ):
+            incomplete_config["fit"][field] = []
+
+        def score_without_icp(data):
+            return score_lead_with_config(
+                data,
+                config=incomplete_config,
+            )
+
+        with patch("lead_api.score_lead", side_effect=score_without_icp):
+            response = self.client.post("/qualified-lead", json=lead)
 
         self.assertEqual(response.status_code, 200)
         self.assertIsInstance(response.json().get("lead_id"), int)
