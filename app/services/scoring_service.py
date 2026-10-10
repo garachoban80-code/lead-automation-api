@@ -1,4 +1,5 @@
 import json
+import re
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,6 +56,12 @@ def _normalize(value):
         "\u200c": " ",
         "\u200d": "",
     }))
+    normalized = normalized.translate(
+        str.maketrans(
+            "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩",
+            "01234567890123456789",
+        )
+    )
     return " ".join(normalized.casefold().split())
 
 
@@ -63,6 +70,50 @@ def _matches(value, options):
     return bool(normalized) and normalized in {
         _normalize(option) for option in options
     }
+
+
+def _parse_headcount(value):
+    """Parse a standalone headcount with an optional recognized unit."""
+    normalized = _normalize(value)
+    match = re.fullmatch(
+        r"(\d+)(?:\s*(?:نفر|کارمند|employees?|people|person))?",
+        normalized,
+    )
+    return int(match.group(1)) if match else None
+
+
+def _parse_company_size_range(value):
+    """Parse a configured range such as '۱ تا ۱۰ نفر' or '1-10 employees'."""
+    normalized = _normalize(value)
+    match = re.fullmatch(
+        r"(\d+)\s*(?:تا|-|–|—)\s*(\d+)"
+        r"(?:\s*(?:نفر|کارمند|employees?|people|person))?",
+        normalized,
+    )
+    if not match:
+        return None
+
+    lower, upper = map(int, match.groups())
+    if lower > upper:
+        return None
+    return lower, upper
+
+
+def _matches_company_size(value, options):
+    """Match an exact size label or a headcount within a configured range."""
+    if _matches(value, options):
+        return True
+
+    headcount = _parse_headcount(value)
+    if headcount is None:
+        return False
+
+    for option in options:
+        bounds = _parse_company_size_range(option)
+        if bounds is not None and bounds[0] <= headcount <= bounds[1]:
+            return True
+
+    return False
 
 
 def _matches_industry(value, options):
@@ -187,7 +238,7 @@ def score_lead(lead, config=None, now=None):
     if size_configured:
         fit_max += float(fit_points["target_company_size"])
 
-        if _matches(lead.get("company_size"), company_sizes):
+        if _matches_company_size(lead.get("company_size"), company_sizes):
             fit_raw += float(fit_points["target_company_size"])
             reasons.append("Company size matches target profile.")
         elif not _normalize(lead.get("company_size")):

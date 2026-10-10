@@ -209,5 +209,33 @@ class TestScoringService(unittest.TestCase):
         self.assertIn("reasons", result)
 
 
+    def test_persian_headcount_matches_configured_range(self):
+        config = copy.deepcopy(self.config)
+        config["fit"]["target_company_sizes"] = ["۱ تا ۱۰ نفر"]
+        lead = {**self.lead, "company_size": "۵ نفر"}
+
+        result = score_lead(lead, config=config, now=self.now)
+
+        self.assertEqual(result["components"]["fit_score"], 100)
+
+    def test_arabic_digits_match_latin_employee_range(self):
+        config = copy.deepcopy(self.config)
+        config["fit"]["target_company_sizes"] = ["11-50 employees"]
+        lead = {**self.lead, "company_size": "١٥ نفر"}
+
+        result = score_lead(lead, config=config, now=self.now)
+
+        self.assertEqual(result["components"]["fit_score"], 100)
+
+    def test_headcount_outside_configured_range_does_not_match(self):
+        config = copy.deepcopy(self.config)
+        config["fit"]["target_company_sizes"] = ["۱ تا ۱۰ نفر"]
+        lead = {**self.lead, "company_size": "۱۵ نفر"}
+
+        result = score_lead(lead, config=config, now=self.now)
+
+        self.assertLess(result["components"]["fit_score"], 100)
+
+
 if __name__ == "__main__":
     unittest.main()
