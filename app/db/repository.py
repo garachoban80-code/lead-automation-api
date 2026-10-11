@@ -4,7 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.db.database import SessionLocal
-from app.db.models import LeadActivity, LeadRecord
+from app.db.models import LeadActivity, LeadRecord, LeadScoreHistory
+from app.services.scoring_service import score_lead
 
 
 REQUIRED_FIELDS = ("name", "job", "city", "phone", "email")
@@ -37,6 +38,25 @@ def _failure(message, error_type):
         "message": message,
         "error_type": error_type,
     }
+
+
+def _add_score_history(session, lead, event_type, activity_id=None):
+    """Snapshot a lead's current scoring state in the same transaction."""
+    history = LeadScoreHistory(
+        lead_id=lead.id,
+        activity_id=activity_id,
+        event_type=event_type,
+        score=lead.score,
+        category=lead.category,
+        scoring_status=lead.scoring_status,
+        model_type=lead.model_type,
+        config_version=lead.config_version,
+        score_components=lead.score_components,
+        score_reasons=lead.score_reasons,
+        score_warnings=lead.score_warnings,
+    )
+    session.add(history)
+    return history
 
 
 def _parse_received_at(value):
@@ -187,6 +207,8 @@ def save_lead(new_lead):
         session.add(record)
 
         try:
+            session.flush()
+            _add_score_history(session, record, "lead_created")
             session.commit()
         except IntegrityError as exc:
             session.rollback()
@@ -219,9 +241,13 @@ def save_lead(new_lead):
 
 
 def save_activity(lead_id: int, activity_type: str):
-    """Persist an activity using a server-generated UTC timestamp."""
+    """Persist an activity and atomically recalculate the lead score."""
     with SessionLocal() as session:
-        lead = session.get(LeadRecord, lead_id)
+        lead = session.scalar(
+            select(LeadRecord)
+            .where(LeadRecord.id == lead_id)
+            .with_for_update()
+        )
 
         if lead is None:
             return _failure("Lead not found.", "lead_not_found")
@@ -234,18 +260,55 @@ def save_activity(lead_id: int, activity_type: str):
         session.add(activity)
 
         try:
+            session.flush()
+
+            activities = session.scalars(
+                select(LeadActivity)
+                .where(LeadActivity.lead_id == lead_id)
+                .order_by(LeadActivity.occurred_at, LeadActivity.id)
+            ).all()
+
+            lead_data = _record_to_dict(lead)
+            lead_data["activities"] = [
+                {
+                    "type": item.type,
+                    "occurred_at": item.occurred_at.isoformat(),
+                }
+                for item in activities
+            ]
+
+            scoring = score_lead(lead_data)
+            lead.score = scoring["score"]
+            lead.category = scoring["category"]
+            lead.scoring_status = scoring["scoring_status"]
+            lead.model_type = scoring["model_type"]
+            lead.config_version = scoring["config_version"]
+            lead.score_components = scoring["components"]
+            lead.score_reasons = scoring["reasons"]
+            lead.score_warnings = scoring["warnings"]
+
+            _add_score_history(
+                session,
+                lead,
+                "activity_recorded",
+                activity_id=activity.id,
+            )
+
             session.commit()
             session.refresh(activity)
-        except IntegrityError:
+        except Exception:
             session.rollback()
             raise
 
         return {
             "success": True,
-            "message": "Activity saved.",
+            "message": "Activity saved and lead rescored.",
             "error_type": None,
             "activity_id": activity.id,
             "lead_id": activity.lead_id,
             "type": activity.type,
             "occurred_at": activity.occurred_at.isoformat(),
+            "score": lead.score,
+            "category": lead.category,
+            "scoring_status": lead.scoring_status,
         }

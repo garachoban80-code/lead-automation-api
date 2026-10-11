@@ -100,3 +100,42 @@ class LeadActivity(Base):
     )
 
     lead: Mapped["LeadRecord"] = relationship(back_populates="activities")
+
+class LeadScoreHistory(Base):
+    __tablename__ = "lead_score_history"
+
+    __table_args__ = (
+        Index(
+            "ix_lead_score_history_lead_created",
+            "lead_id",
+            "created_at",
+            "id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lead_id: Mapped[int] = mapped_column(
+        ForeignKey("leads.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    activity_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lead_activities.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    score: Mapped[float | None] = mapped_column(Float)
+    category: Mapped[str] = mapped_column(String(30), nullable=False)
+    scoring_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    model_type: Mapped[str | None] = mapped_column(String(50))
+    config_version: Mapped[str | None] = mapped_column(String(80))
+
+    score_components: Mapped[dict | None] = mapped_column(JSON)
+    score_reasons: Mapped[list | None] = mapped_column(JSON)
+    score_warnings: Mapped[list | None] = mapped_column(JSON)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )

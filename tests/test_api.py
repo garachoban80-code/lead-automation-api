@@ -26,7 +26,7 @@ TEST_URL = main_url.set(database="lead_automation_test")
 TEST_ENGINE = create_engine(TEST_URL, pool_pre_ping=True)
 
 inspector = inspect(TEST_ENGINE)
-required_tables = {"alembic_version", "leads", "lead_activities"}
+required_tables = {"alembic_version", "leads", "lead_activities", "lead_score_history"}
 missing_tables = required_tables - set(inspector.get_table_names())
 
 if missing_tables:
@@ -49,6 +49,7 @@ TestSessionLocal = sessionmaker(
 )
 
 from app.db import repository
+from app.services.scoring_service import load_scoring_config
 from lead_api import app
 
 
@@ -58,7 +59,7 @@ class TestLeadAPI(unittest.TestCase):
         with TEST_ENGINE.begin() as connection:
             connection.execute(
                 text(
-                    "TRUNCATE TABLE lead_activities, leads "
+                    "TRUNCATE TABLE lead_score_history, lead_activities, leads "
                     "RESTART IDENTITY CASCADE"
                 )
             )
@@ -282,6 +283,120 @@ class TestLeadAPI(unittest.TestCase):
         self.assertEqual(row.type, "quote_requested")
         self.assertIsNotNone(row.occurred_at)
         self.assertIsNotNone(row.occurred_at.tzinfo)
+
+    def test_activity_rescores_lead_and_preserves_history(self):
+        fit = load_scoring_config()["fit"]
+        payload = {
+            **self.basic_lead,
+            "industry": fit["target_industries"][0],
+            "company_size": fit["target_company_sizes"][0],
+            "contact_role": fit["decision_maker_roles"][0],
+            "service_region": fit["service_regions"][0],
+            "budget": "confirmed",
+            "timeline": "this_month",
+            "need": "Automate repetitive administrative work.",
+        }
+
+        created = self.client.post("/qualified-lead", json=payload)
+        self.assertEqual(created.status_code, 200)
+        lead_id = created.json()["lead_id"]
+
+        before = next(
+            lead for lead in repository.load_leads()
+            if lead["email"] == payload["email"]
+        )
+        self.assertIsNotNone(before["score"])
+
+        response = self.client.post(
+            f"/leads/{lead_id}/activities",
+            json={"type": "quote_requested"},
+            headers={"X-Activity-API-Key": self.activity_api_key},
+        )
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertGreater(response.json()["score"], before["score"])
+
+        after = next(
+            lead for lead in repository.load_leads()
+            if lead["email"] == payload["email"]
+        )
+        self.assertGreater(after["score"], before["score"])
+
+        with TEST_ENGINE.connect() as connection:
+            history = connection.execute(
+                text("""
+                    SELECT event_type, score, activity_id
+                    FROM lead_score_history
+                    WHERE lead_id = :lead_id
+                    ORDER BY id
+                """),
+                {"lead_id": lead_id},
+            ).all()
+
+        self.assertEqual(
+            [row.event_type for row in history],
+            ["lead_created", "activity_recorded"],
+        )
+        self.assertAlmostEqual(history[0].score, before["score"])
+        self.assertAlmostEqual(history[1].score, after["score"])
+        self.assertEqual(history[1].activity_id, response.json()["activity_id"])
+
+    def test_activity_and_history_roll_back_when_rescoring_fails(self):
+        fit = load_scoring_config()["fit"]
+        payload = {
+            **self.basic_lead,
+            "industry": fit["target_industries"][0],
+            "company_size": fit["target_company_sizes"][0],
+            "contact_role": fit["decision_maker_roles"][0],
+            "service_region": fit["service_regions"][0],
+            "budget": "confirmed",
+            "timeline": "this_month",
+            "need": "Automate repetitive administrative work.",
+        }
+
+        created = self.client.post("/qualified-lead", json=payload)
+        self.assertEqual(created.status_code, 200)
+        lead_id = created.json()["lead_id"]
+
+        with TEST_ENGINE.connect() as connection:
+            before = connection.execute(
+                text("""
+                    SELECT count(*) FROM lead_score_history
+                    WHERE lead_id = :lead_id
+                """),
+                {"lead_id": lead_id},
+            ).scalar_one()
+
+        with patch(
+            "app.db.repository.score_lead",
+            side_effect=RuntimeError("simulated scoring failure"),
+        ):
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    f"/leads/{lead_id}/activities",
+                    json={"type": "quote_requested"},
+                    headers={
+                        "X-Activity-API-Key": self.activity_api_key,
+                    },
+                )
+
+        with TEST_ENGINE.connect() as connection:
+            activity_count = connection.execute(
+                text("""
+                    SELECT count(*) FROM lead_activities
+                    WHERE lead_id = :lead_id
+                """),
+                {"lead_id": lead_id},
+            ).scalar_one()
+            after = connection.execute(
+                text("""
+                    SELECT count(*) FROM lead_score_history
+                    WHERE lead_id = :lead_id
+                """),
+                {"lead_id": lead_id},
+            ).scalar_one()
+
+        self.assertEqual(activity_count, 0)
+        self.assertEqual(after, before)
 
     def test_unknown_activity_type_is_rejected(self):
         response = self.client.post(

@@ -25,7 +25,7 @@ TEST_URL = main_url.set(database="lead_automation_test")
 TEST_ENGINE = create_engine(TEST_URL, pool_pre_ping=True)
 
 inspector = inspect(TEST_ENGINE)
-required_tables = {"alembic_version", "leads", "lead_activities"}
+required_tables = {"alembic_version", "leads", "lead_activities", "lead_score_history"}
 missing_tables = required_tables - set(inspector.get_table_names())
 
 if missing_tables:
@@ -53,7 +53,7 @@ class TestPostgresRepository(unittest.TestCase):
         with TEST_ENGINE.begin() as connection:
             connection.execute(
                 text(
-                    "TRUNCATE TABLE lead_activities, leads "
+                    "TRUNCATE TABLE lead_score_history, lead_activities, leads "
                     "RESTART IDENTITY CASCADE"
                 )
             )
