@@ -1,0 +1,61 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, ai-copilot-foundation]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lead_app
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: lead_automation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lead_app -d lead_automation"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+psycopg://lead_app:ci_test_password@localhost:5432/lead_automation
+      API_KEY: ci-test-api-key-0123456789-abcdefghijklmnopqrstuvwxyz
+      ACTIVITY_API_KEY: ci-test-activity-key-0123456789-abcdefghijklmnopqrstuvwxyz
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create test database
+        run: |
+          PGPASSWORD=ci_test_password createdb -h localhost -U lead_app lead_automation_test
+
+      - name: Migrate main test schema
+        run: alembic upgrade head
+
+      - name: Migrate isolated test database
+        run: alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+psycopg://lead_app:ci_test_password@localhost:5432/lead_automation_test
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
