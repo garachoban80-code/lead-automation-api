@@ -1,0 +1,121 @@
+{
+  "version": "heuristic-v3-icp-initial",
+  "description": "Initial ICP for small Iranian businesses with repetitive administrative workflows. Transparent heuristic, not a purchase-probability model.",
+  "fit": {
+    "target_industries": [
+      "خدمات کسب‌وکار",
+      "خدمات اداری",
+      "فروشگاه اینترنتی",
+      "تجارت الکترونیک",
+      "پخش و توزیع",
+      "آموزشگاه",
+      "املاک",
+      "حسابداری",
+      "دیجیتال مارکتینگ",
+      "business services",
+      "administrative services",
+      "e-commerce",
+      "distribution",
+      "education",
+      "real estate",
+      "accounting services"
+    ],
+    "adjacent_industries": [
+      "خرده‌فروشی",
+      "تولیدی کوچک",
+      "خدمات فنی",
+      "لجستیک",
+      "رستوران و کافه",
+      "مشاوره",
+      "retail",
+      "small manufacturing",
+      "technical services",
+      "logistics",
+      "consulting"
+    ],
+    "target_company_sizes": [
+      "۱ تا ۱۰ نفر",
+      "۱۱ تا ۵۰ نفر",
+      "کسب‌وکار کوچک",
+      "1-10 employees",
+      "11-50 employees",
+      "small business",
+      "solo"
+    ],
+    "decision_maker_roles": [
+      "مالک",
+      "صاحب کسب‌وکار",
+      "مدیرعامل",
+      "بنیان‌گذار",
+      "مدیر کسب‌وکار",
+      "مدیر عملیات",
+      "مدیر فروش",
+      "owner",
+      "business owner",
+      "founder",
+      "CEO",
+      "operations manager",
+      "sales manager"
+    ],
+    "influencer_roles": [
+      "مدیر دفتر",
+      "مسئول دفتر",
+      "مسئول اداری",
+      "کارشناس اداری",
+      "کارشناس فروش",
+      "کارشناس عملیات",
+      "office manager",
+      "office administrator",
+      "administrative assistant",
+      "sales representative"
+    ],
+    "service_regions": [
+      "ایران",
+      "سراسر ایران",
+      "کل ایران",
+      "Iran",
+      "Iran nationwide",
+      "nationwide"
+    ]
+  },
+  "fit_points": {
+    "target_industry": 25,
+    "adjacent_industry": 12,
+    "target_company_size": 20,
+    "decision_maker": 20,
+    "influencer": 10,
+    "service_region": 15,
+    "maximum_raw_score": 80
+  },
+  "intent_points": {
+    "budget_confirmed": 15,
+    "budget_amount_provided": 5,
+    "timeline_days": {
+      "0_30": 25,
+      "31_90": 15,
+      "over_90": 5
+    },
+    "activities": {
+      "demo_booked": 30,
+      "quote_requested": 30,
+      "contact_form_submitted": 12,
+      "sales_email_reply": 15,
+      "pricing_page_view": 5
+    },
+    "maximum_raw_score": 100
+  },
+  "negative_points": {
+    "explicit_disqualification": 60,
+    "outside_service_area": 35,
+    "invalid_contact": 25
+  },
+  "activity_decay_days": 30,
+  "score_weights": {
+    "fit": 0.4,
+    "intent": 0.6
+  },
+  "thresholds": {
+    "hot": 70,
+    "warm": 40
+  }
+}
